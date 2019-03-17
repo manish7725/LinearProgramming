@@ -1,0 +1,56 @@
+immBomMatrix <- function(rac_df, comps_df) {
+  flog.info("immBomMatrix Parameter Details:", name = 'logger.main')
+  flog.info(
+    "==========================================================================================",
+    name = 'logger.main'
+  )
+  flog.info("rack_list Rows and column:%s:%s",
+            nrow(rac_df),
+            ncol(rac_df),
+            name = 'logger.main')
+  flog.info("comps_df Rows and column:%s:%s",
+            nrow(comps_df),
+            ncol(comps_df),
+            name = 'logger.main')
+  racs <- subset(rac_df,
+                 select = c("ITEM_NAME"),
+                 rac_df$ITEM_CLASSIFICATION == 'Rack')
+  
+  imm_components_df <- subset(
+    comps_df
+    ,
+    comps_df$ROOT_ITEM_ID == comps_df$PARENT_ITEM_ID
+    &
+      comps_df$ITEM_CLASSIFICATION != 'Rack'
+  )
+  
+  
+  item_id <- subset(imm_components_df, select = c("ITEM_ID"))
+  u_item_id <- unique(item_id)
+  
+  imm_bom_matrix <- data.frame(u_item_id)
+  cols <- c("ITEM_ID")
+  
+  for (i in 1:nrow(racs)) {
+    name <- paste("A-", racs[i, ], sep = "")
+    rac <- NULL
+    cols <- append(cols, name)
+    for (j in 1:nrow(u_item_id)) {
+      qpr <-
+        subset(
+          imm_components_df,
+          select = c("ITEM_ID" , "QUANTITY_PER_ROOT") ,
+          imm_components_df$ITEM_ID == u_item_id[j, ] &
+            imm_components_df$ROOT_ITEM == racs[i, ]
+        )
+      sum_qpr <- sum(qpr$QUANTITY_PER_ROOT, na.rm = TRUE)
+      rac <- append(rac, sum_qpr)
+    }
+    imm_bom_matrix <- cbind(imm_bom_matrix , rac)
+  }
+  
+  colnames(imm_bom_matrix) <- cols
+  
+  return(imm_bom_matrix[order(imm_bom_matrix$ITEM_ID), ])
+  
+}
