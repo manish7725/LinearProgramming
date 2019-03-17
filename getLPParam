@@ -1,0 +1,113 @@
+getLPParam <-
+  function(bom_matrix_df,
+           object_func_type,
+           var_list,
+           item_list) {
+    #getting Parmeter for solving Lp like lhs rhs and objective function
+    #bom_matrix_df<-dataEntityList$rack_bom_immediate_only_matrix_df  # Bom matrix
+    #object_func_type<-'CO'  # Objective Function Type
+    #var_list<-dataEntityList$rack_list # Variable list
+    #item_list<-dataEntityList$item_list  #Item List Containing Item Cost
+    
+    flog.info("getLPParam with below parameters", name = 'logger.main')
+    flog.info(
+      "==========================================================================================",
+      name = 'logger.main'
+    )
+    flog.info(
+      "bom_matrix_df Rows and column:%s:%s",
+      nrow(bom_matrix_df),
+      ncol(bom_matrix_df),
+      name = 'logger.main'
+    )
+    flog.info("object_func_type: %s", object_func_type, name = 'logger.main')
+    flog.info("No Of variable in LP: %s", nrow(var_list), name = 'logger.main')
+    flog.info("item_list Rows and column:%s:%s",
+              nrow(item_list),
+              ncol(item_list),
+              name = 'logger.main')
+    
+    bom_matrix <- as.matrix(bom_matrix_df[, 3:ncol(bom_matrix_df)])
+    colnames(bom_matrix) <- NULL
+    child_list_name <- bom_matrix_df[, 1]
+    child_list_id <- bom_matrix_df[, 2]
+    obj.fun <-
+      getObjectiveVar(bom_matrix_df, item_list, object_func_type, nrow(var_list))
+    constr <-
+      rbind(bom_matrix, diag(c(rep(1, each = (
+        ncol(bom_matrix)
+      )))))
+    dir <- c(rep('<=', nrow(bom_matrix)) , rep('<=', ncol(bom_matrix)))
+    list <- list(
+      "constr" = constr,
+      "dir" = dir,
+      "obj.fun" = obj.fun,
+      "bom_matrix" = bom_matrix,
+      "child_list_name" = child_list_name,
+      "child_list_id" = child_list_id
+    )
+    return (list)
+  }
+
+
+getObjectiveVar <-
+  function (bom_matrix_df,
+            item_list,
+            object_func_type,
+            lpvarCount) {
+    
+    #Getting objective function constants for Lp based on parameter
+    flog.info("getObjectiveVar Parameter Details", name = 'logger.main')
+    flog.info(
+      "==========================================================================================",
+      name = 'logger.main'
+    )
+    flog.info(
+      "bom_matrix_df Rows and column:%s:%s",
+      nrow(bom_matrix_df),
+      ncol(bom_matrix_df),
+      name = 'logger.main'
+    )
+    flog.info("item_list Rows and column:%s:%s",
+              nrow(item_list),
+              ncol(item_list),
+              name = 'logger.main')
+    flog.info("object_func_type %s", object_func_type, name = 'logger.main')
+    flog.info("lpvarCount %s", lpvarCount, name = 'logger.main')
+    
+    #bom_matrix_df<-bom_matrix_df   #--> Bom Matrix
+    #item_list<-item_list        #--> Item List Containg Cost
+    #object_func_type<-object_func_type # --> Object Function Type "IO" or demand Fulfillment Maximization
+    #lpvarCount<-nrow(var_list) #--> No Of variable in LP
+    
+    
+    endindex <- (lpvarCount + 3)
+    if (object_func_type == 'CO') {
+      ind <- match(bom_matrix_df[, 2], item_list[, 2])
+      
+      ind <- ind[!is.na(ind)]
+      bom_mat_cost <- cbind(item_list[ind, 4], bom_matrix_df)
+      flog.debug("Sum Of Item Cost %s", sum(item_list[, 4], na.rm = FALSE), name =
+                   'logger.main')
+      obj.fun <-
+        c(colSums(as.data.frame(bom_mat_cost[, 4:(lpvarCount + 3)] * bom_mat_cost[, 1])))
+      if (is.na(sum(obj.fun, na.rm = FALSE)))
+      {
+        flog.error("Objective function vector have NA's", name = 'logger.main')
+        stop("Objective Function Vector Computed wrong!!!!!")
+      }
+      
+      flog.info("Sum Of Objective %s", sum(obj.fun, na.rm = FALSE), name =
+                  'logger.main')
+    } else{
+      obj.fun <- c(rep(1, each = ncol(bom_matrix_df[, 3:(lpvarCount + 2)])))
+      flog.info("Sum Of Objective %s", sum(obj.fun, na.rm = FALSE), name =
+                  'logger.main')
+      if (is.na(sum(obj.fun, na.rm = FALSE)))
+      {
+        flog.error("Objective function vector have NA's", name = 'logger.main')
+        stop("Objective Function Vector Computed wrong!!!!!")
+      }
+    }
+    return(obj.fun)
+  }
