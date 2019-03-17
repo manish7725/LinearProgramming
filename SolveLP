@@ -1,0 +1,108 @@
+solveLP2 <- function(lp_param_list,
+                     rhs,
+                     lp_control_param,
+                     lp_identity) {
+  # Call lp of lpSoleve API and result gives matrix of maximum no of racks built or value of variable
+  # obj.fun (list)   -->  Objective Function
+  # constr  (Matrix) -->  LHS of Linear equation (Constraints only)
+  # dir     (list)   -->  Direction of each Constraint
+  # rhs     (list)   -->  RHS of linear equation
+  # nracks  (numeric)-->  no Of Racks for which equation is being solved.
+  # Some Important validation point
+  # 1. Length of obj.fun = No f variable for which equation is being solved.
+  # 2. lenght of rhs,dir,nrow(constr) should be same.
+  # 3. Need to implement time wait bound of lp function(As some time it take too much time.)
+  #lp_param_list<-param_list
+  #rhs<-rhs
+  #lp_control_param<-lp_control_param
+  #lp_identity<-lp_identifier
+  
+  
+  
+  flog.info("solveLP2 Parameter Details", name = 'logger.main')
+  flog.info(
+    "==========================================================================================",
+    name = 'logger.main'
+  )
+  l_sense <- lp_control_param$sense
+  l_verbose <- lp_control_param$verbose
+  l_type <- lp_control_param$lp_type
+  l_bbrule <- lp_control_param$bb.rule
+  l_depthlimit <- lp_control_param$bb.depthlimit
+  l_timeout <- lp_control_param$timeout
+  l_scaling <- lp_control_param$scaling
+  
+  flog.info("LP Control Parameters", name = 'logger.main')
+  flog.info("l_sense        :%s", l_sense, name = 'logger.main')
+  flog.info("l_verbose      :%s", l_verbose, name = 'logger.main')
+  flog.info("l_type         :%s", l_type, name = 'logger.main')
+  flog.info("l_bbrule       :%s", l_bbrule, name = 'logger.main')
+  flog.info("l_depthlimit   :%s", l_depthlimit, name = 'logger.main')
+  flog.info("l_timeout      :%s", l_timeout, name = 'logger.main')
+  flog.info("l_scaling      :%s", length(l_scaling), name = 'logger.main')
+  flog.info("lp_identity    :%s", lp_identity, name = 'logger.main')
+  
+  flog.info("LP Paramer List", name = 'logger.main')
+  flog.info(
+    "Constr Dim     :%s:%s",
+    nrow(lp_param_list$constr),
+    ncol(lp_param_list$constr),
+    name = 'logger.main'
+  )
+  flog.info(
+    "Bom Matrix Dim :%s:%s",
+    nrow(lp_param_list$bom_matrix),
+    ncol(lp_param_list$bom_matrix),
+    name = 'logger.main'
+  )
+  flog.info("Direction      :%s", length(lp_param_list$dir), name = 'logger.main')
+  flog.info("Objective      :%s", length(lp_param_list$obj.fun), name =
+              'logger.main')
+  flog.info("Rhs            :%s", length(lp_param_list$obj.fun), name =
+              'logger.main')
+  
+  lprec <- make.lp(0,
+                   ncol(lp_param_list$constr), verbose = l_verbose) # ,verbose='full'one var for the value x(i) and one var y(i) binary if x(i) > 0
+  lp.control(lprec, reset = TRUE)
+  set.objfn(lprec, lp_param_list$obj.fun)
+  
+  set.type(lprec,
+           column = 1:ncol(lp_param_list$constr),
+           type = l_type) # y(i) are binary vars
+  #add constraints as in the question
+  #set.bounds(lprec, upper=rep(0.5, nx), columns=seq(1,nx)) # lpsolve implicitly assumes x(i) >= 0, so no need to define bounds for that
+  for (i in 1:nrow(lp_param_list$constr)) {
+    add.constraint(lprec, c(lp_param_list$constr[i, ])
+                   , lp_param_list$dir[i]
+                   , rhs[i])
+  }
+  
+  lp.control(
+    lprec,
+    sense = l_sense,
+    bb.rule = l_bbrule,
+    bb.depthlimit = l_depthlimit,
+    timeout = l_timeout,
+    scaling = l_scaling,
+    verbose = l_verbose
+  )
+  
+  if (lp_control_param$PLUS_DEBUG_MODE == 'DEBUG') {
+    write.lp(lprec, paste("log" , paste(lp_identity, "lp", sep = "."), sep = "/"))
+    #paste("",paste(planId,curTime,"temp_supply_df.csv",sep = "_"),sep="")
+  }
+  status <- solve(lprec)
+  flog.info("Status of LP: %s", status, name = 'logger.main')
+  
+  if (status > 1 &
+      status != 7)
+    stop("no solution found, error code= %s", status)
+  sol <- get.variables(lprec)
+  sol <- floor(sol)
+  
+  output <- matrix(c(sol), ncol = 1, byrow = FALSE)
+  flog.info("Output of LP :%s:%s", nrow(output), ncol(output), name =
+              'logger.main')
+  rm(lprec)
+  return (output)
+}
